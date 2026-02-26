@@ -1,4 +1,4 @@
-import Email from "../models/email.js";
+import Email from "../models/Email.js";
 import { generateEmail as generateEmailWithGroq } from "../services/groqService.js";
 import ActivityLog from "../models/ActivityLog.js";
 import { sendMail } from "../services/mailService.js";
