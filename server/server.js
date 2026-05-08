@@ -14,10 +14,15 @@ connectDB();
 const app = express();
 
 // Middleware
+// Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: [
+    "http://localhost:5173",
+    "https://mailflow-ai-phi.vercel.app"
+  ],
   credentials: true
 }));
+
 app.use(express.json());
 
 // Basic test route
