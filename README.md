@@ -22,6 +22,7 @@
 - [Project Overview](#-project-overview)
 - [Architecture](#-architecture-overview)
 - [Features](#-features)
+- [Application Preview](#-application-preview)
 - [Tech Stack](#-tech-stack)
 - [Folder Structure](#-folder-structure)
 - [Getting Started](#-getting-started)
@@ -51,10 +52,6 @@ MailFlow AI implements a decoupled client-server architecture:
 - **Server (Backend):** A Node.js/Express REST API deployed on Render. It handles authentication, interfaces with the MongoDB database, orchestrates AI generation requests to external LLM providers (OpenAI/Groq), and dispatches emails via Nodemailer.
 - **Database:** MongoDB Atlas provides a managed, scalable cloud database solution for user data and application state.
 
-<div align="center">
-  <!-- Placeholder for Architecture Diagram -->
-  <img src="https://via.placeholder.com/800x400.png?text=System+Architecture+Diagram" alt="Architecture Diagram Placeholder" width="800" />
-</div>
 
 ---
 
@@ -67,10 +64,17 @@ MailFlow AI implements a decoupled client-server architecture:
 - **🛡️ Protected Routing:** Secured backend API endpoints ensuring data privacy and authorized access only.
 - **📱 Responsive UI:** Modern, mobile-first frontend interface designed with Tailwind CSS.
 
-<div align="center">
-  <!-- Placeholder for Application Screenshot -->
-  <img src="https://via.placeholder.com/800x450.png?text=Application+Screenshot" alt="App Screenshot Placeholder" width="800" />
-</div>
+---
+
+## 📸 Application Preview
+
+### Landing Page
+<img src="./screenshots/homepage.png" alt="Homepage Screenshot" width="100%" />
+
+<br />
+
+### Dashboard
+<img src="./screenshots/dashboard.png" alt="Dashboard Screenshot" width="100%" />
 
 ---
 
