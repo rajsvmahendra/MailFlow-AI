@@ -26,7 +26,7 @@ const EmailHistory = () => {
         const fetchEmails = async () => {
             try {
                 const res = await fetch(
-                    `http://localhost:5000/api/email?search=${search}&tone=${tone}&sort=${sort}`,
+                    `${import.meta.env.VITE_API_URL}/api/email?search=${search}&tone=${tone}&sort=${sort}`,
                     {
                         headers: {
                             Authorization: "Bearer " + localStorage.getItem("token"),
@@ -54,7 +54,7 @@ const EmailHistory = () => {
         if (!confirmDelete) return;
 
         try {
-            const res = await fetch(`http://localhost:5000/api/email/${id}`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/email/${id}`, {
                 method: "DELETE",
                 headers: {
                     Authorization: "Bearer " + localStorage.getItem("token"),

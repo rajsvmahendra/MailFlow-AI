@@ -27,7 +27,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/email/stats", {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/email/stats`, {
           headers: {
             Authorization: "Bearer " + localStorage.getItem("token"),
           },
@@ -47,7 +47,7 @@ const Dashboard = () => {
 
     const fetchActivity = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/email/activity", {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/email/activity`, {
           headers: {
             Authorization: "Bearer " + localStorage.getItem("token"),
           },
