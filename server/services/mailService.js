@@ -11,14 +11,14 @@ export const sendMail = async ({ from, to, subject, text, html }) => {
         port: parseInt(process.env.SMTP_PORT || "587"),
         secure: process.env.SMTP_PORT === "465", // true for 465, false for other ports
         auth: {
-            user: process.env.SMTP_USER?.trim(),
-            pass: process.env.SMTP_PASS?.trim(),
+            user: (process.env.EMAIL_USER || process.env.SMTP_USER)?.trim(),
+            pass: (process.env.EMAIL_PASS || process.env.SMTP_PASS)?.trim(),
         },
 
     });
 
     const mailOptions = {
-        from: from || process.env.SMTP_USER,
+        from: from || process.env.EMAIL_USER || process.env.SMTP_USER,
         to,
         subject,
         text,

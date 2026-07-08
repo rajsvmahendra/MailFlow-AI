@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { API_URL } from "../config";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -18,7 +19,7 @@ const Login = () => {
     }
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -26,7 +27,12 @@ const Login = () => {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        throw new Error("Unable to parse server response. The server might be down or misconfigured.");
+      }
 
       if (response.ok) {
         localStorage.setItem("token", data.token);
@@ -36,7 +42,7 @@ const Login = () => {
         setError(data.message || "Login failed");
       }
     } catch (error) {
-      setError("Server error. Please try again.");
+      setError(error.message || "Server error. Please try again.");
     }
   };
   return (

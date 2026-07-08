@@ -13,6 +13,7 @@ import {
   Send
 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
+import { API_URL } from "../config";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -27,18 +28,25 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/email/stats`, {
+        const res = await fetch(`${API_URL}/api/email/stats`, {
           headers: {
             Authorization: "Bearer " + localStorage.getItem("token"),
           },
         });
-        const data = await res.json();
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonErr) {
+          throw new Error("Unable to parse stats from server.");
+        }
         if (data.success) {
           setStats({
             totalEmails: data.totalEmails,
             emailsThisWeek: data.emailsThisWeek,
             savedDrafts: data.savedDrafts,
           });
+        } else {
+          console.error("Fetch stats failed:", data.message);
         }
       } catch (error) {
         console.error("Error fetching stats:", error);
@@ -47,14 +55,21 @@ const Dashboard = () => {
 
     const fetchActivity = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/email/activity`, {
+        const res = await fetch(`${API_URL}/api/email/activity`, {
           headers: {
             Authorization: "Bearer " + localStorage.getItem("token"),
           },
         });
-        const data = await res.json();
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonErr) {
+          throw new Error("Unable to parse activity from server.");
+        }
         if (data.success) {
           setActivities(data.activities);
+        } else {
+          console.error("Fetch activity failed:", data.message);
         }
       } catch (error) {
         console.error("Error fetching activity:", error);

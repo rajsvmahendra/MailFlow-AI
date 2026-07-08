@@ -14,6 +14,7 @@ import {
   Type,
   Globe
 } from "lucide-react";
+import { API_URL } from "../config";
 import DashboardLayout from "../components/DashboardLayout";
 
 const CreateEmail = () => {
@@ -59,7 +60,7 @@ const CreateEmail = () => {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/email/generate`, {
+      const response = await fetch(`${API_URL}/api/email/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -74,7 +75,12 @@ const CreateEmail = () => {
         })
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        throw new Error("Unable to parse generated email from server.");
+      }
 
       if (!response.ok) {
         throw new Error(data.message || "Failed to generate email");
@@ -118,7 +124,7 @@ const CreateEmail = () => {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/email/send`, {
+      const response = await fetch(`${API_URL}/api/email/send`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -133,7 +139,12 @@ const CreateEmail = () => {
         })
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        throw new Error("Unable to parse send response from server.");
+      }
 
       if (response.ok) {
         setSendSuccess(true);
@@ -141,7 +152,7 @@ const CreateEmail = () => {
         setSendError(data.message || "Failed to send email");
       }
     } catch (error) {
-      setSendError("Network error. Please try again.");
+      setSendError(error.message || "Network error. Please try again.");
     } finally {
       setIsSending(false);
     }

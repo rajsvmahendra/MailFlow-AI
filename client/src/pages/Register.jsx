@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { API_URL } from "../config";
 
 const Register = () => {
   const [name, setName] = useState("");
@@ -33,7 +34,7 @@ const Register = () => {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/auth/register`,
+        `${API_URL}/api/auth/register`,
         {
           method: "POST",
           headers: {
@@ -43,7 +44,12 @@ const Register = () => {
         }
       );
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        throw new Error("Unable to parse server response. The server might be down or misconfigured.");
+      }
 
       if (response.ok) {
         // Save JWT token
@@ -55,7 +61,7 @@ const Register = () => {
         setError(data.message || "Registration failed");
       }
     } catch (error) {
-      setError("Server error. Please try again.");
+      setError(error.message || "Server error. Please try again.");
     }
   };
 

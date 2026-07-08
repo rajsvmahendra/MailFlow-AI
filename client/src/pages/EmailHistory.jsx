@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import DashboardLayout from "../components/DashboardLayout";
+import { API_URL } from "../config";
 
 const EmailHistory = () => {
     const [search, setSearch] = useState("");
@@ -26,7 +27,7 @@ const EmailHistory = () => {
         const fetchEmails = async () => {
             try {
                 const res = await fetch(
-                    `${import.meta.env.VITE_API_URL}/api/email?search=${search}&tone=${tone}&sort=${sort}`,
+                    `${API_URL}/api/email?search=${search}&tone=${tone}&sort=${sort}`,
                     {
                         headers: {
                             Authorization: "Bearer " + localStorage.getItem("token"),
@@ -34,9 +35,17 @@ const EmailHistory = () => {
                     }
                 );
 
-                const data = await res.json();
+                let data;
+                try {
+                    data = await res.json();
+                } catch (jsonErr) {
+                    throw new Error("Unable to parse emails list from server.");
+                }
+
                 if (data.success) {
                     setEmails(data.emails);
+                } else {
+                    console.error("Fetch emails failed:", data.message);
                 }
             } catch (error) {
                 console.error("Error fetching emails:", error);
@@ -54,18 +63,25 @@ const EmailHistory = () => {
         if (!confirmDelete) return;
 
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/email/${id}`, {
+            const res = await fetch(`${API_URL}/api/email/${id}`, {
                 method: "DELETE",
                 headers: {
                     Authorization: "Bearer " + localStorage.getItem("token"),
                 },
             });
 
-            const data = await res.json();
+            let data;
+            try {
+                data = await res.json();
+            } catch (jsonErr) {
+                throw new Error("Unable to parse delete confirmation from server.");
+            }
 
             if (data.success) {
                 setEmails((prev) => prev.filter((email) => email._id !== id));
                 if (selectedEmail?._id === id) setSelectedEmail(null);
+            } else {
+                console.error("Delete email failed:", data.message);
             }
         } catch (error) {
             console.error("Error deleting email:", error);
