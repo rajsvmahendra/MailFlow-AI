@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -11,14 +11,26 @@ import {
   Mail,
   User,
   Info,
-  Type,
-  Globe
+  Globe,
+  Command,
+  Download,
+  Clock,
+  RotateCcw,
+  BookOpen,
+  ArrowRight,
+  History
 } from "lucide-react";
 import { API_URL } from "../config";
 import DashboardLayout from "../components/DashboardLayout";
+import { useToast } from "../context/ToastContext";
+import PageTransition from "../components/PageTransition";
 
 const CreateEmail = () => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.title = "AI Email Workspace | MailFlow AI";
+  }, []);
 
   // Form State
   const [purpose, setPurpose] = useState("");
@@ -29,6 +41,7 @@ const CreateEmail = () => {
 
   // Generation State
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState(0);
   const [generatedEmail, setGeneratedEmail] = useState("");
   const [currentEmailId, setCurrentEmailId] = useState(null);
   const [error, setError] = useState("");
@@ -36,7 +49,7 @@ const CreateEmail = () => {
   // Editing State
   const [editableSubject, setEditableSubject] = useState("");
   const [editableBody, setEditableBody] = useState("");
-  const [copySuccess, setCopySuccess] = useState(false);
+  const { addToast } = useToast();
 
   // Sending State
   const [receiverEmail, setReceiverEmail] = useState("");
@@ -45,18 +58,56 @@ const CreateEmail = () => {
   const [sendSuccess, setSendSuccess] = useState(false);
   const [sendError, setSendError] = useState("");
 
+  const stages = [
+    "Analyzing prompt context...",
+    "Planning draft structure...",
+    "Writing subject line...",
+    "Drafting body paragraphs...",
+    "Polishing and refining tone...",
+    "Ready!"
+  ];
+
+  // Shortcut Example Prompts
+  const examplePrompts = [
+    {
+      label: "Request Update",
+      text: "Write a polite follow-up email to the engineering team asking for an update on the API integration progress."
+    },
+    {
+      label: "Reschedule Sync",
+      text: "Write an email to a client requesting to reschedule our weekly sync meeting from Tuesday to Thursday afternoon."
+    },
+    {
+      label: "Coffee Chat",
+      text: "Write a short cold email to a product designer asking for a 15-minute coffee chat to discuss their career journey."
+    }
+  ];
+
+  const toneChips = [
+    "Professional", "Friendly", "Formal", "Confident", "Apologetic", "Persuasive", "Follow-up", "Interview", "Networking"
+  ];
+
   const handleGenerate = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!purpose.trim()) {
       setError("Please describe the purpose of the email");
       return;
     }
 
     setIsLoading(true);
+    setLoadingStage(0);
     setError("");
     setGeneratedEmail("");
     setSendSuccess(false);
     setSendError("");
+
+    // Start loader simulation
+    const stageInterval = setInterval(() => {
+      setLoadingStage((prev) => {
+        if (prev < 4) return prev + 1;
+        return prev;
+      });
+    }, 1200);
 
     try {
       const token = localStorage.getItem("token");
@@ -86,35 +137,48 @@ const CreateEmail = () => {
         throw new Error(data.message || "Failed to generate email");
       }
 
-      setGeneratedEmail(data.email);
-      setCurrentEmailId(data.emailId);
+      // Fast-forward loader to completion
+      clearInterval(stageInterval);
+      setLoadingStage(5);
 
-      // Parse subject and body
-      const subjectMatch = data.email.match(/Subject:\s*(.*)/i);
-      if (subjectMatch && subjectMatch[1]) {
-        setEditableSubject(subjectMatch[1].trim());
-        setEditableBody(data.email.replace(/Subject:\s*.*\n/i, "").trim());
-      } else {
-        setEditableSubject("Generated Email");
-        setEditableBody(data.email);
-      }
+      setTimeout(() => {
+        setGeneratedEmail(data.email);
+        setCurrentEmailId(data.emailId);
+
+        // Parse subject and body
+        const subjectMatch = data.email.match(/Subject:\s*(.*)/i);
+        if (subjectMatch && subjectMatch[1]) {
+          setEditableSubject(subjectMatch[1].trim());
+          setEditableBody(data.email.replace(/Subject:\s*.*\n/i, "").trim());
+        } else {
+          setEditableSubject("Generated Email");
+          setEditableBody(data.email);
+        }
+        setIsLoading(false);
+      }, 500);
+
     } catch (err) {
+      clearInterval(stageInterval);
       setError(err.message || "Something went wrong. Please try again.");
-    } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      handleGenerate(e);
     }
   };
 
   const handleCopy = () => {
     const fullText = `Subject: ${editableSubject}\n\n${editableBody}`;
     navigator.clipboard.writeText(fullText);
-    setCopySuccess(true);
-    setTimeout(() => setCopySuccess(false), 2000);
+    addToast("Draft copied to clipboard!", "success");
   };
 
   const handleSendEmail = async () => {
     if (!receiverEmail.trim()) {
-      setSendError("Recipient email is required");
+      addToast("Recipient email is required", "warning");
       return;
     }
 
@@ -148,252 +212,444 @@ const CreateEmail = () => {
 
       if (response.ok) {
         setSendSuccess(true);
+        addToast("Email sent successfully out of the portal!", "success");
       } else {
         setSendError(data.message || "Failed to send email");
+        addToast(data.message || "Failed to send email", "error");
       }
     } catch (error) {
       setSendError(error.message || "Network error. Please try again.");
+      addToast(error.message || "Network error. Please try again.", "error");
     } finally {
       setIsSending(false);
     }
   };
 
+  // Word count and reading time helpers
+  const getWordCount = () => {
+    const text = `${editableSubject} ${editableBody}`.trim();
+    return text ? text.split(/\s+/).filter(Boolean).length : 0;
+  };
+
+  const getReadingTime = () => {
+    const words = getWordCount();
+    return Math.max(1, Math.ceil(words / 200));
+  };
+
   return (
     <DashboardLayout>
-      <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
-        {/* Input Section */}
-        <div className="w-full lg:w-80 xl:w-96 flex flex-col gap-6 shrink-0">
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-            <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-indigo-600" />
-              AI Settings
-            </h3>
+      <PageTransition>
+        <div className="max-w-7xl mx-auto space-y-6">
+        
+        {/* Header Title */}
+        <header className="pb-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-brand-primary tracking-tight">AI Email Workspace</h2>
+            <p className="text-slate-400 text-xs font-semibold mt-1">Configure draft settings and generate custom professional email responses.</p>
+          </div>
+          <button
+            onClick={() => navigate("/email-history")}
+            className="btn-primary btn-sm gap-2 shadow-sm rounded-xl shrink-0"
+          >
+            <History className="w-4 h-4" />
+            View History
+          </button>
+        </header>
 
-            <form onSubmit={handleGenerate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                  <Info className="w-4 h-4 text-gray-400" />
-                  Email Purpose
-                </label>
-                <textarea
-                  value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)}
-                  placeholder="What is this email about?"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all min-h-[120px] text-sm"
-                />
-              </div>
+        {/* Responsive Workspace Grid */}
+        <div className="grid lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Left Column: AI Parameters */}
+          <div className="lg:col-span-5 space-y-6">
+            <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm space-y-6">
+              <h3 className="text-sm font-bold text-brand-primary uppercase tracking-wider flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-brand-accent" />
+                Prompt & Context
+              </h3>
 
-              <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-4">
+                {/* Prompt textarea */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                    <RefreshCw className="w-4 h-4 text-gray-400" />
-                    Tone
-                  </label>
-                  <select
-                    value={tone}
-                    onChange={(e) => setTone(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-sm"
-                  >
-                    <option value="friendly">Friendly</option>
-                    <option value="formal">Formal</option>
-                    <option value="professional">Professional</option>
-                    <option value="assertive">Assertive</option>
-                  </select>
+                  <div className="flex justify-between items-center mb-2">
+                    <label htmlFor="purpose" className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      Describe Purpose
+                    </label>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      {purpose.length} chars
+                    </span>
+                  </div>
+                  <textarea
+                    id="purpose"
+                    value={purpose}
+                    onChange={(e) => setPurpose(e.target.value.slice(0, 500))}
+                    maxLength={500}
+                    onKeyDown={handleKeyDown}
+                    placeholder="E.g., request update on the API milestone, reschedule meeting to Thursday..."
+                    className="textarea-accent min-h-[110px] resize-none"
+                  />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Length</label>
-                    <select
-                      value={length}
-                      onChange={(e) => setLength(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-100 bg-gray-50 text-sm"
-                    >
-                      <option value="short">Short</option>
-                      <option value="medium">Medium</option>
-                      <option value="long">Long</option>
-                    </select>
+                {/* Example Quick Taps */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">Example Prompt Suggestions</span>
+                  <div className="flex flex-wrap gap-2">
+                    {examplePrompts.map((p, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setPurpose(p.text)}
+                        className="px-2.5 py-1 text-[10px] font-bold bg-slate-50 border border-slate-100 text-slate-500 rounded-lg hover:border-brand-accent-light hover:text-brand-accent hover:bg-indigo-50/30 transition-all outline-none"
+                      >
+                        {p.label}
+                      </button>
+                    ))}
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Type</label>
-                    <select
-                      value={type}
-                      onChange={(e) => setType(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-100 bg-gray-50 text-sm"
-                    >
-                      <option value="direct">Direct</option>
-                      <option value="detailed">Detailed</option>
-                    </select>
+                </div>
+
+                {/* Keywords Tagging */}
+                <div>
+                  <label htmlFor="keywords" className="block text-xs font-bold text-slate-700 mb-2">
+                    Keywords (Optional)
+                  </label>
+                  <input
+                    id="keywords"
+                    type="text"
+                    value={keywords}
+                    onChange={(e) => setKeywords(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="E.g., urgent, milestone, sync"
+                    className="input-accent"
+                  />
+                </div>
+
+                {/* Tone Grid Selection */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Tone Setting
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {toneChips.map((t) => {
+                      const isSelected = tone.toLowerCase() === t.toLowerCase();
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setTone(t.toLowerCase())}
+                          className={`px-2 py-2.5 rounded-xl text-[10px] font-bold border transition-all duration-200 outline-none ${
+                            isSelected
+                              ? "bg-brand-primary text-white border-brand-primary shadow-sm scale-[1.03]"
+                              : "bg-white text-slate-500 border-slate-100 hover:border-slate-200 hover:text-slate-700"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Segmented Controls for Length & Type */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-700">Length</label>
+                    <div className="bg-slate-50 border border-slate-100/80 rounded-xl p-1 flex">
+                      {["short", "medium", "long"].map((l) => (
+                        <button
+                          key={l}
+                          type="button"
+                          onClick={() => setLength(l)}
+                          className={`flex-1 text-center py-2 rounded-lg text-[10px] font-bold capitalize transition-all outline-none ${
+                            length === l
+                              ? "bg-white text-brand-primary shadow-sm border border-slate-100/50"
+                              : "text-slate-400 hover:text-slate-600"
+                          }`}
+                        >
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-700">Format</label>
+                    <div className="bg-slate-50 border border-slate-100/80 rounded-xl p-1 flex">
+                      {["direct", "detailed", "creative"].map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setType(t)}
+                          className={`flex-1 text-center py-2 rounded-lg text-[10px] font-bold capitalize transition-all outline-none ${
+                            type === t
+                              ? "bg-white text-brand-primary shadow-sm border border-slate-100/50"
+                              : "text-slate-400 hover:text-slate-600"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
 
               {error && (
-                <div className="text-red-500 text-xs font-medium bg-red-50 p-3 rounded-lg flex items-center gap-2">
+                <div className="text-red-500 text-xs font-semibold bg-red-50/50 border border-red-100 p-3.5 rounded-xl flex items-center gap-2" role="alert">
                   <AlertCircle className="w-4 h-4" />
                   {error}
                 </div>
               )}
 
+              {/* Generate CTA Button */}
               <button
-                type="submit"
+                onClick={(e) => handleGenerate(e)}
                 disabled={isLoading}
-                className="w-full bg-[#1F2A37] text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#111827] transition-all duration-300 disabled:opacity-50 shadow-md"
+                className="btn-primary btn-md w-full gap-2 rounded-xl"
               >
                 {isLoading ? (
-                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Processing Stage...</span>
+                  </>
                 ) : (
                   <>
-                    <Sparkles className="w-5 h-5" />
-                    Generate
+                    <Sparkles className="w-4 h-4" />
+                    <span>Generate AI Email</span>
                   </>
                 )}
               </button>
-            </form>
+            </div>
+          </div>
+
+          {/* Right Column: Simulated Loader & Preview Panel */}
+          <div className="lg:col-span-7">
+            <AnimatePresence mode="wait">
+              
+              {/* State 1: Empty State */}
+              {!generatedEmail && !isLoading && (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  className="min-h-[460px] border border-dashed border-slate-200 bg-white rounded-2xl flex flex-col items-center justify-center p-8 text-center"
+                >
+                  <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 mb-6 shadow-sm">
+                    <Mail className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-base font-bold text-slate-800 mb-1.5">Draft Composer Ready</h3>
+                  <p className="text-xs text-slate-400 max-w-sm mb-6 leading-relaxed font-semibold">
+                    Set up your tone parameters and details on the left, then click generate to craft your customized draft.
+                  </p>
+                </motion.div>
+              )}
+
+              {/* State 2: Simulated Loader */}
+              {isLoading && (
+                <motion.div
+                  key="loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="min-h-[460px] bg-white border border-slate-100 rounded-2xl flex flex-col items-center justify-center p-8 text-center shadow-sm"
+                >
+                  <div className="relative mb-8">
+                    <motion.div
+                      animate={{ scale: [1, 1.25, 1], opacity: [0.2, 0.4, 0.2] }}
+                      transition={{ repeat: Infinity, duration: 1.8 }}
+                      className="absolute -inset-6 bg-brand-accent-light rounded-full blur-xl"
+                    />
+                    <Sparkles className="w-10 h-10 text-brand-accent relative z-10 animate-bounce" />
+                  </div>
+                  <h3 className="text-lg font-bold text-brand-primary mb-4">Email Construction</h3>
+                  
+                  {/* Dynamic Workflow stages */}
+                  <div className="space-y-2.5 w-full max-w-xs text-left bg-slate-50 border border-slate-100 p-4 rounded-xl">
+                    {stages.map((stage, idx) => {
+                      const isPast = loadingStage > idx;
+                      const isCurrent = loadingStage === idx;
+                      return (
+                        <div key={idx} className="flex items-center gap-2 text-[10px] font-bold">
+                          {isPast ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          ) : isCurrent ? (
+                            <RefreshCw className="w-3.5 h-3.5 text-brand-accent animate-spin shrink-0" />
+                          ) : (
+                            <span className="w-3.5 h-3.5 rounded-full border border-slate-200 shrink-0" />
+                          )}
+                          <span className={`${isCurrent ? "text-slate-800" : isPast ? "text-slate-400" : "text-slate-300"}`}>
+                            {stage}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* State 3: Generated Email Editor */}
+              {generatedEmail && !isLoading && (
+                <motion.div
+                  key="content"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white border border-slate-100 rounded-2xl shadow-sm flex flex-col overflow-hidden relative"
+                >
+                  {/* Gmail Style Header Top bar */}
+                  <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-brand-accent text-[9px] font-bold uppercase tracking-wider flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" />
+                        AI Generated
+                      </span>
+                      <div className="h-4 w-px bg-slate-200" />
+                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>{getReadingTime()} min read</span>
+                        <span>•</span>
+                        <span>{getWordCount()} words</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {/* Copy Draft button */}
+                      <button
+                        type="button"
+                        onClick={handleCopy}
+                        className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-brand-primary hover:border-brand-primary-hover text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 outline-none"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy</span>
+                      </button>
+
+                      {/* Regenerate Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleGenerate()}
+                        className="p-2 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-brand-primary hover:border-brand-primary-hover transition-all active:scale-95 outline-none"
+                        title="Regenerate Draft"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Download PDF Placeholder */}
+                      <button
+                        type="button"
+                        className="p-2 rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-600 transition-all outline-none"
+                        title="Download PDF (Mockup)"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Gmail Style Email Fields */}
+                  <div className="p-6 space-y-5">
+                    {/* Subject line field */}
+                    <div>
+                      <div className="flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                        Subject
+                      </div>
+                      <input
+                        id="subject"
+                        value={editableSubject}
+                        onChange={(e) => setEditableSubject(e.target.value)}
+                        className="w-full text-lg font-black text-slate-800 border-none focus:ring-0 p-0 placeholder-slate-300 outline-none rounded"
+                        placeholder="Email Subject Line"
+                      />
+                    </div>
+
+                    <div className="h-px bg-slate-100/70" />
+
+                    {/* Email Body field */}
+                    <div>
+                      <div className="flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                        Body Content
+                      </div>
+                      <textarea
+                        id="body"
+                        value={editableBody}
+                        onChange={(e) => setEditableBody(e.target.value)}
+                        className="w-full min-h-[220px] text-xs font-semibold text-slate-600 leading-relaxed border-none focus:ring-0 p-0 resize-none placeholder-slate-300 outline-none rounded"
+                        placeholder="Compose email here..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Send Mail Setup Banner */}
+                  <div className="p-6 border-t border-slate-100 bg-slate-50/30 space-y-4">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Delivery Details</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="relative">
+                        <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 z-10" />
+                        <input
+                          id="recipientEmail"
+                          type="email"
+                          placeholder="Recipient Email Address"
+                          aria-label="Recipient Email Address"
+                          value={receiverEmail}
+                          onChange={(e) => setReceiverEmail(e.target.value)}
+                          className="input-accent-icon"
+                        />
+                      </div>
+                      <div className="relative">
+                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 z-10" />
+                        <input
+                          id="senderName"
+                          type="text"
+                          placeholder="Sender Name (Optional)"
+                          aria-label="Sender Name"
+                          value={senderEmail}
+                          onChange={(e) => setSenderEmail(e.target.value)}
+                          className="input-accent-icon"
+                        />
+                      </div>
+                    </div>
+
+                    {sendSuccess && (
+                      <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50/40 border border-emerald-100 p-4 rounded-xl" role="alert">
+                        <Check className="w-4 h-4" />
+                        <span className="text-xs font-bold">Email sent successfully out of the portal!</span>
+                      </div>
+                    )}
+
+                    {sendError && (
+                      <div className="flex items-center gap-2 text-rose-600 bg-rose-50/40 border border-rose-100 p-4 rounded-xl" role="alert">
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="text-xs font-bold">{sendError}</span>
+                      </div>
+                    )}
+
+                    {/* Send trigger */}
+                    <button
+                      type="button"
+                      onClick={handleSendEmail}
+                      disabled={isSending}
+                      className="btn-primary btn-md w-full gap-2 rounded-xl"
+                    >
+                      {isSending ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Dispatching draft...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          <span>Send Draft Now</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+            </AnimatePresence>
           </div>
         </div>
-
-        {/* Output Section */}
-        <div className="flex-1 min-w-0">
-          <AnimatePresence mode="wait">
-            {!generatedEmail && !isLoading ? (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="h-[400px] border-2 border-dashed border-gray-200 rounded-3xl flex flex-col items-center justify-center p-8 text-center bg-gray-50/50"
-              >
-                <div className="bg-white p-4 rounded-2xl shadow-sm mb-4">
-                  <Mail className="w-8 h-8 text-gray-300" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">Start Writing</h3>
-                <p className="text-sm text-gray-400 max-w-xs">
-                  Fill in the settings on the left to generate your AI-powered email.
-                </p>
-              </motion.div>
-            ) : isLoading ? (
-              <motion.div
-                key="loading"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="h-[400px] bg-white rounded-3xl border border-gray-100 flex flex-col items-center justify-center p-8 text-center shadow-sm"
-              >
-                <div className="relative mb-6">
-                  <motion.div
-                    animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
-                    transition={{ repeat: Infinity, duration: 2 }}
-                    className="absolute -inset-4 bg-indigo-100 rounded-full blur-xl"
-                  />
-                  <Sparkles className="w-12 h-12 text-indigo-600 relative z-10" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Composing...</h3>
-                <p className="text-sm text-gray-400">Our AI is drafting the perfect response for you.</p>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="content"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden flex flex-col"
-              >
-                <div className="p-6 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
-                  <h3 className="font-bold text-gray-900">Email Draft</h3>
-                  <button
-                    onClick={handleCopy}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:text-indigo-600 hover:border-indigo-100 transition-all"
-                  >
-                    {copySuccess ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                    {copySuccess ? "Copied" : "Copy"}
-                  </button>
-                </div>
-
-                <div className="p-8 space-y-6">
-                  <div>
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">Subject</label>
-                    <input
-                      value={editableSubject}
-                      onChange={(e) => setEditableSubject(e.target.value)}
-                      className="w-full text-xl font-bold text-gray-900 border-none focus:ring-0 p-0 placeholder-gray-300"
-                      placeholder="Email Subject"
-                    />
-                  </div>
-
-                  <div className="h-px bg-gray-100" />
-
-                  <div>
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">Body</label>
-                    <textarea
-                      value={editableBody}
-                      onChange={(e) => setEditableBody(e.target.value)}
-                      className="w-full min-h-[250px] text-gray-700 leading-relaxed border-none focus:ring-0 p-0 resize-none placeholder-gray-300"
-                      placeholder="Start writing..."
-                    />
-                  </div>
-                </div>
-
-                {/* Send Controls */}
-                <div className="p-8 border-t border-gray-100 bg-gray-50/30">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div className="relative">
-                      <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="email"
-                        placeholder="Recipient Email"
-                        value={receiverEmail}
-                        onChange={(e) => setReceiverEmail(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
-                      />
-                    </div>
-                    <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="email"
-                        placeholder="Sender Name (Optional)"
-                        value={senderEmail}
-                        onChange={(e) => setSenderEmail(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  {sendSuccess && (
-                    <div className="flex items-center gap-2 text-green-600 bg-green-50 p-4 rounded-2xl mb-6">
-                      <Check className="w-5 h-5" />
-                      <span className="text-sm font-bold">Email sent successfully!</span>
-                    </div>
-                  )}
-
-                  {sendError && (
-                    <div className="flex items-center gap-2 text-red-600 bg-red-50 p-4 rounded-2xl mb-6">
-                      <AlertCircle className="w-5 h-5" />
-                      <span className="text-sm font-bold">{sendError}</span>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handleSendEmail}
-                    disabled={isSending}
-                    className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all duration-300 disabled:opacity-50 shadow-lg shadow-indigo-100"
-                  >
-                    {isSending ? (
-                      <RefreshCw className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <>
-                        <Send className="w-5 h-5" />
-                        Send Now
-                      </>
-                    )}
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
       </div>
+      </PageTransition>
     </DashboardLayout>
   );
 };
 
 export default CreateEmail;
+

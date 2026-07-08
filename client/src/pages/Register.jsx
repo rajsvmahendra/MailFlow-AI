@@ -1,34 +1,39 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { API_URL } from "../config";
+import { useToast } from "../context/ToastContext";
 
 const Register = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
+  const { addToast } = useToast();
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.title = "Create Account | MailFlow AI";
+  }, []);
 
   const handleRegister = async (e) => {
     e.preventDefault();
 
     // Basic validations
     if (!name || !email || !password || !confirmPassword) {
-      setError("Please fill all fields");
+      addToast("Please fill all fields", "error");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      addToast("Passwords do not match", "error");
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+      addToast("Password must be at least 6 characters", "error");
       return;
     }
 
@@ -52,21 +57,23 @@ const Register = () => {
       }
 
       if (response.ok) {
-        // Save JWT token
+        // Save JWT token and user info
         localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        addToast("Account registered successfully!", "success");
 
         // Redirect to dashboard
         navigate("/dashboard");
       } else {
-        setError(data.message || "Registration failed");
+        addToast(data.message || "Registration failed", "error");
       }
     } catch (error) {
-      setError(error.message || "Server error. Please try again.");
+      addToast(error.message || "Server error. Please try again.", "error");
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#EEF3F5]">
+    <div className="min-h-screen bg-brand-bg-light">
       <Navbar />
 
       <div className="min-h-screen flex items-center justify-center px-4 pt-16 pb-20">
@@ -74,62 +81,73 @@ const Register = () => {
 
           {/* Left Side - Register Form */}
           <div className="w-full flex justify-center md:justify-end">
-            <div className="bg-white rounded-3xl shadow-xl p-8 md:p-10 max-w-md w-full">
+            <div className="bg-white rounded-card-lg border border-gray-100 shadow-xl p-8 md:p-10 max-w-md w-full">
 
-              <h2 className="text-3xl font-bold text-[#1F2A37] mb-2">
+              <h2 className="text-3xl font-bold text-brand-primary mb-2">
                 Create your account
               </h2>
 
               <p className="text-gray-500 mt-2 mb-6">
-                Join AI Email Composer and start writing smarter emails
+                Join MailFlow AI and start writing smarter emails
               </p>
-
-              {error && (
-                <p className="text-red-500 text-sm mb-4">{error}</p>
-              )}
 
               <form className="space-y-4" onSubmit={handleRegister}>
 
                 <input
+                  id="name"
                   type="text"
                   placeholder="Name"
+                  aria-label="Full Name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#1F2A37]"
+                  className="input-primary"
                 />
 
                 <input
+                  id="email"
                   type="email"
                   placeholder="Email"
+                  aria-label="Email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#1F2A37]"
+                  className="input-primary"
                 />
 
                 <input
+                  id="password"
                   type="password"
                   placeholder="Password"
+                  aria-label="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#1F2A37]"
+                  className="input-primary"
                 />
 
                 <input
+                  id="confirmPassword"
                   type="password"
                   placeholder="Confirm Password"
+                  aria-label="Confirm Password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#1F2A37]"
+                  className="input-primary"
                 />
 
                 <button
                   type="submit"
-                  className="w-full bg-[#1F2A37] text-white py-3 rounded-xl font-semibold hover:bg-[#111827] transition shadow-md"
+                  className="btn-primary w-full py-3 rounded-input text-base font-semibold shadow-md"
                 >
                   Register
                 </button>
 
               </form>
+
+              <p className="text-center text-sm text-gray-500 mt-6">
+                Already have an account?{" "}
+                <Link to="/login" className="text-brand-accent font-semibold hover:underline">
+                  Sign In
+                </Link>
+              </p>
             </div>
           </div>
 
@@ -137,8 +155,8 @@ const Register = () => {
           <div className="hidden md:flex items-center justify-center">
             <img
               src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f"
-              alt="Workspace"
-              className="rounded-3xl shadow-xl object-cover h-[520px] w-full max-w-lg"
+              alt="Premium workspace group work"
+              className="rounded-card-lg shadow-xl object-cover h-[520px] w-full max-w-lg"
             />
           </div>
 

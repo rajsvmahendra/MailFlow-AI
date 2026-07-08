@@ -17,8 +17,11 @@ export const sendMail = async ({ from, to, subject, text, html }) => {
 
     });
 
+    const senderEmailAddress = process.env.EMAIL_USER || process.env.SMTP_USER;
     const mailOptions = {
-        from: from || process.env.EMAIL_USER || process.env.SMTP_USER,
+        from: from && from.includes("@") 
+            ? from 
+            : (from ? `${from} <${senderEmailAddress}>` : senderEmailAddress),
         to,
         subject,
         text,
